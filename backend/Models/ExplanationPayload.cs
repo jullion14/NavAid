@@ -11,12 +11,33 @@ namespace GeoDSS.Api.Models;
 /// Nothing that cannot legitimately appear in the output belongs in here — no
 /// planning area IDs, no geometry, no raw metric objects, no full ranking table.
 /// </summary>
+public enum ExplanationMode
+{
+    /// <summary>Descriptive brief: what kind of place this is and how reachable services are.</summary>
+    Area,
+
+    /// <summary>Why the area sits where it does in the ranking.</summary>
+    Rank,
+
+    /// <summary>Two areas side by side, with precomputed differences.</summary>
+    Compare,
+
+    /// <summary>How much the ranking depends on the weights.</summary>
+    Sensitivity
+}
 public sealed class ExplanationPayload
 {
     /// <summary>"area" for a single-area brief, "compare" for a pairwise brief.</summary>
-    public required string Mode { get; init; }
+    public required ExplanationMode Mode { get; init; }
 
     public required ExplanationSubject Subject { get; init; }
+    /// <summary>
+    /// The second area in Compare mode, null otherwise. Kept separate from
+    /// Subject rather than as a list, because the two are not symmetric: the
+    /// explanation is written about Subject, with ComparisonSubject as the
+    /// reference point.
+    /// </summary>
+    public ExplanationSubject? ComparisonSubject { get; init; }
 
     /// <summary>The fact ledger: the only figures the model may state.</summary>
     public required IReadOnlyList<ExplanationFact> Facts { get; init; }
@@ -63,6 +84,13 @@ public sealed class ExplanationFact
     /// sees Id, Label and Value only.
     /// </summary>
     public string? Key { get; init; }
+    /// <summary>
+    /// Which area this figure describes. Null for facts that belong to neither
+    /// or both — medians, sample counts, precomputed differences. Set only in
+    /// Compare mode, where a figure attached to the wrong area is the most
+    /// likely and least visible failure.
+    /// </summary>
+    public string? Owner { get; init; }
 }
 
 public sealed class ExplanationMethod
@@ -70,6 +98,7 @@ public sealed class ExplanationMethod
     public required string Formula { get; init; }
     public required string Normalisation { get; init; }
     public required string ScoreDirection { get; init; }
+    public required IReadOnlyList<string> CriterionDirections { get; init; }
     public required int ScoredAreaCount { get; init; }
     public int? SensitivitySamples { get; init; }
     public int? SensitivitySeed { get; init; }

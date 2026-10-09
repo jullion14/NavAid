@@ -1,6 +1,6 @@
 ﻿namespace GeoDSS.Api.Services;
 
-public enum ExplanationMode
+public enum ServiceMode
 {
     /// <summary>Call the API. Cache successful responses.</summary>
     Live,
@@ -23,15 +23,15 @@ public sealed class GeminiOptions
     /// Google retires and renames these on its own schedule; a wrong name
     /// returns a 404 that reads like an endpoint problem.
     /// </summary>
-    public string Model { get; set; } = "gemini-3.5-flash-lite";
+    public string Model { get; set; } = "gemini-3.6-flash";
 
     public string Endpoint { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 
-    public ExplanationMode Mode { get; set; } = ExplanationMode.Cached;
+    public ServiceMode Mode { get; set; } = ServiceMode.Cached;
 
     /// <summary>Low, not zero: zero can produce degenerate repetition on structured output.</summary>
     public double Temperature { get; set; } = 0.2;
-    public int TimeoutSeconds { get; set; } = 15;
+    public int TimeoutSeconds { get; set; } = 90;
 
     /// <summary>Where recorded responses live, for Offline mode and demo safety.</summary>
     public string RecordedResponsesPath { get; set; } = "RecordedExplanations";

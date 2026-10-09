@@ -1,186 +1,160 @@
-# Analysis methodology
+# Methodology
 
-> Part of the GeoDSS reference docs. See [`README.md`](../README.md) for the index.
+> Part of the reference docs. See [`README.md`](../README.md) for the index.
 
-This is the report-facing document: what is computed, how, and why.
-Known weaknesses are collected separately in [`08-limitations.md`](08-limitations.md).
+This is the report-facing document: what is computed, how, and why. Known
+weaknesses are collected separately in [`08-limitations.md`](08-limitations.md).
 
-## Inclusion criteria — which areas are scored
+## The claim
 
-Of 55 planning areas, **38 are scored**. Two filters, applied in
-`SpatialAnalysisService.GetAllAsync`:
+A route can be short and still be hard to follow. The number and difficulty of
+the decisions along it, and whether anything along the way confirms the walker
+is still right, matter more to a person whose orientation is unreliable than
+the distance does. Duckham and Kulik (2003) argued this as *simplest paths*;
+Zhou et al. (2019) extended it by identifying complicated decision points from
+network structure and routing around them.
 
-| Filter | Effect | Why |
+This project computes such routes for Singapore's public housing estates, where
+repeated building form supplies few distinguishing cues, and phrases them using
+landmarks rather than street names.
+
+## Mobility profiles
+
+Profiles are defined in `MobilityProfileCatalog` and exposed through the API, so
+every parameter is visible and challengeable rather than buried in code.
+
+| Profile | Speed | Steps | Unsignalised crossing | Unsheltered |
+|---|---|---|---|---|
+| `euclidean` | straight-line baseline | — | — | — |
+| `default` | 1.10 m/s | allowed, small penalty | small penalty | none |
+| `limited` | 0.80 m/s | impassable | large penalty | moderate penalty |
+
+Speeds are taken from published reference values, not measured here. Yang et al.
+(2024) report a median habitual gait speed of 1.08 m/s for Singapore adults aged
+21–80, which is noticeably slower than the 1.3–1.4 m/s common in Western norms —
+so the local figure is used for the default profile. The `limited` figure sits
+below Bohannon's ~0.94 m/s for adults over eighty, representing a mobility-limited
+rather than merely older walker.
+
+Penalty magnitudes are initial estimates and are treated as tunable parameters
+subject to sensitivity testing, not as established constants.
+
+## Cost function
+
+Traversal cost departs from shortest-path in three ways. All three are
+precomputed into `way_profile_cost` at import.
+
+**Decision-point cost.** Each vertex where a decision must be made adds a cost
+weighted by how hard that decision is to get right. `branch_count` is cached at
+import; a vertex with three or more outgoing ways at similar angles costs more
+than a simple corner. Degree-2 vertices are not decision points at all.
+
+**Landmark discount.** A segment passing within a landmark's `visibility_m`
+is discounted, because a landmark confirms to the walker that they are still on
+the right path. The discount scales with `salience`.
+
+**Familiarity discount.** Segments belonging to a route in `recorded_routes` are
+discounted heavily, so a known path is chosen over a shorter unknown one
+wherever a known path exists. This is the strongest single term: for someone
+with cognitive decline, familiarity beats optimality.
+
+The resulting route is longer than the shortest path by construction. Measuring
+that difference is the point of the evaluation, not a defect.
+
+## Landmark model
+
+Five sources, three roles.
+
+| Kind | Source | Role |
 |---|---|---|
-| Has a `population` row | 55 -> 49 | Industrial, reserve and water-catchment areas have no residents, so density and per-capita rates are undefined. |
-| `total_population >= 1000` | 49 -> 38 | Below this, per-capita rates are unstable and distort the shared normalisation scale. |
+| `gtp` | MOH Dementia Go-To Points | Destination **and** landmark |
+| `caregiver` | Entered through the caregiver view | Landmark, highest salience |
+| `route_derived` | Extracted from recorded routes | Landmark |
+| `mrt_exit`, `bus_stop` | LTA | Landmark |
+| `clinic` | MOH GP / polyclinic locations | Landmark |
 
-The 1,000 floor matches the threshold the ETL already uses to null out
-percentage bands, so it is one criterion applied consistently rather than an
-arbitrary cutoff chosen to improve results.
+Caregiver-entered landmarks are expected to outperform the published sets,
+because a personally meaningful reference point ("the kopi shop where you always
+sit") is recognised faster than a generic one. They also solve a data problem:
+no dataset exists for the murals, colour-coded blocks and pillar signage
+installed under the dementia-friendly community programme, and a caregiver can
+record the ones that matter without a survey.
 
-**Why the floor matters.** Min-max normalisation takes its bounds from the
-data, so bounds are shared across all scored areas. Tuas has one clinic and
-roughly 80 residents, giving 125 facilities per 10,000 — around six times the
-next highest value. Including it sets the maximum for that criterion so high
-that every genuine area compresses into the bottom few percent of the scale
-and the criterion stops discriminating between them. One unrepresentative area
-degrades the score for all the others.
+**Salience** is recorded 1–5 across visual distinctiveness, semantic meaning and
+structural position, following the landmark-salience literature. It is a
+judgement, recorded as such.
 
-Unscored areas are not hidden. Selecting one on the map shows its metrics with
-an explicit note that it is excluded from the ranking and why.
+**Snapping.** Every landmark resolves to a `nearest_vertex` at import. A landmark
+matters relative to a decision point, not as a free-floating coordinate, and
+snapping absorbs a few metres of positional error — which matters because
+Go-To Point coordinates are building-level and caregiver entries come from a
+phone.
 
-## Metrics
+## Go-To Point deduplication
 
-```
-GET /api/analysis/area/{id} returns per planning area:
+The published set has 831 rows but 717 distinct postal codes. Individual mall
+tenants are each registered as a Go-To Point and geocoded to the mall's single
+coordinate — twenty rows share one point at Waterway Point.
 
-  AreaSqKm                ST_Area(geom::geography) / 1e6
-  PopulationDensity       population / area
-  GpCount / PolyclinicCount / TotalFacilities
-  FacilitiesPer10k        facilities * 10000 / population
-  NearestFacilityMeters   ST_Distance from ST_PointOnSurface, KNN (<->)
-  NearestFacilityName / NearestFacilityType
-  MrtExitCount
-  NearestMrtMeters / NearestMrtStation
-  BusStopCount / WellServedBusStops / BusiestStopServices   [context only]
+Routing therefore resolves to the **building**, not the shop unit. Tenants are
+kept as an attribute array. Without this, "route to the nearest Go-To Point"
+would compute twenty identical routes and offer the user a choice between Adidas
+and Sushi Express.
 
-Scored metrics (MetricCatalog): dist_healthcare, pop_density,
-facilities_per_10k, dist_mrt. Bus metrics are deliberately NOT scored.
+## Destination fallback
 
-===============================================================
-DECISION SUPPORT + SENSITIVITY
-===============================================================
-Scoring: weighted linear combination over min-max normalised metrics, with
-cost-direction metrics inverted. Formula string is generated and exposed in
-the API so the UI can display it rather than hiding it.
+Where a saved destination lies beyond a configurable walking threshold, the
+system routes to the nearest Go-To Point instead of attempting a journey the
+user cannot complete. This is what the national network exists for: a staffed
+location where someone disoriented is helped to contact their caregiver.
 
-Sensitivity (SensitivityService):
-  1. Dirichlet Monte Carlo over the weight simplex -> rank stability
-     intervals. Defaults: 1000 samples, concentration 40, seed 20260803.
-  2. One-at-a-time perturbation -> tornado (which criterion drives an area).
-  3. Weight sweep -> crossover points where the ordering flips.
+At a median 210 m spacing between distinct buildings, a Go-To Point is typically
+a two to four minute walk away in a built-up estate.
 
-ON DETERMINISM: Monte Carlo introduces randomness into a system whose whole
-premise is being deterministic and auditable. The seed is fixed and always
-echoed in the response, so any figure quoted in the report is reproducible.
-```
+## AI constraint
 
-## Bus metric validation — key finding
+The model appears at two points, each followed immediately by a deterministic
+check.
 
-```
-Four candidate bus accessibility metrics tested for construct validity:
+**Input.** The transcript is passed to Gemini with a `responseSchema` returning
+an action, a destination and an optional profile — nothing else. That object is
+validated against known destinations and landmarks **before** the routing engine
+is called. An intent that fails validation is refused and the user asked to
+repeat, rather than answered with a guess.
 
-  avg services per stop      vs distance from CBD    r = -0.802   REJECTED
-  % stops with 10+ services  vs distance from CBD    r = -0.815   REJECTED
-  stops per km²              vs population density   r =  0.783   REJECTED
-  busiest stop (max)         vs distance from CBD    r =  0.385   marginal
+**Output.** The model receives the computed route as an ordered list of segments
+with the landmarks the engine attached to each, and phrases them as spoken
+directions. Every landmark named in the generated text is checked back against
+that list; any instruction containing something not supplied is discarded in
+favour of a template.
 
-avg services also correlated 0.622 with facilities_per_10k — redundant twice.
+The model never calculates a route and never selects a landmark. Current
+autonomous-GIS agents report roughly 80–86% success at producing a correct
+spatial workflow (Li & Ning, 2023) — a rate that cannot support an instruction a
+disoriented person will act on immediately and without scrutiny.
 
-INTERPRETATION: Singapore's bus network is radial, so any measure of how many
-services pass a stop is structurally determined by that stop's position
-relative to the city centre. Aggregating to planning-area level then removes
-the variation that would have been meaningful — the difference between a
-well-served and a quiet stop WITHIN the same town.
+## Evaluation
 
-DECISION: bus data retained as descriptive context in AreaSelector, NOT as a
-weighted input. MetricCatalog unchanged. The underlying limitation (bus
-accessibility needs household-level, not area-level, measurement) is the same
-constraint that put building-level analysis out of scope.
+**T1 — Routing correctness.** Default-profile walking routes are compared against
+the OneMap routing service across a sample of origin–destination pairs,
+reporting agreement in distance and duration. This establishes that the network
+import and cost model are sound before any profile-specific claim is made.
 
-Queries preserved in bus_metric_validation.sql.
-```
+**T2 — Route comparison.** The headline measurement. For 20 journeys within the
+study estate, the shortest and landmark-guided routes are compared on decision
+points, turns, proportion of segments carrying a landmark, and additional
+distance — establishing what ease of following costs in metres. A result showing
+little divergence is still reportable: it would delimit when a shortest-path
+approximation is adequate.
 
-## Point queries (probe points)
+**T3 — Field verification.** A subset of those routes is walked with GPS trace
+capture. Recorded tracks are compared against planned routes to test whether the
+instructions could in fact be followed, and where they were ambiguous. The test
+targets **path selection**, not speed — the researcher does not walk at the
+`limited` profile's pace, and that distinction is stated rather than glossed.
 
-The area-level analysis measures every distance from one representative point
-per planning area, produced by `ST_PointOnSurface`. That guarantees an interior
-point for concave polygons, but a single point cannot describe a whole area.
-
-Probe points let a user click any location and measure the straight-line
-distance from that spot to the nearest healthcare facility, MRT exit and bus
-stop. Up to eight points can be placed at once.
-
-**Scope boundary.** This is a query tool, not a scoring input. `MetricCatalog`
-is untouched, the priority score and ranking are unchanged, and nothing a user
-clicks feeds back into the analysis. The unit of analysis remains the planning
-area.
-
-**What it contributes.** Placing several points inside one planning area shows
-how much nearest-facility distance varies across it. The panel reports that
-spread directly ("3 points measured, nearest clinic ranges from 210 m to
-1.4 km"). This turns limitation #10 from an assertion into a measurement, and
-the figure is worth reproducing in the evaluation chapter.
-
-**Implementation.** `GET /api/analysis/point?lat=&lng=` runs the same
-KNN-then-refine pattern as the area query: the `<->` operator orders candidates
-by degrees on raw geometry (cheap, uses the GiST index), then the top 20 are
-re-ranked by true geodesic distance. A bounding-box guard rejects coordinates
-outside Singapore before the query runs. `ST_Contains` against `planning_areas`
-identifies the containing area, or returns null over water.
-
-## Measurement lines
-
-Area-level distances are drawn on the map: the representative point is marked,
-with dashed lines to the nearest facility (red) and nearest MRT exit (purple),
-matching the layer colours. Two things become visible that the numbers alone did
-not convey — that the reference point is an interior point rather than a
-population centre, and that lines frequently cross planning-area boundaries,
-because nearest-facility search is deliberately cross-boundary.
-
-## AI explanation module
-
-The explanation module operates on a **closed fact ledger**. Every figure the
-model may state is supplied to it as a `{ id, label, value }` record where
-`value` is a pre-formatted string produced in C#. The model is never handed a
-raw float, so no arithmetic path exists from its inputs to the text shown to
-the user. Comparative figures — medians, deltas, percentile positions — are
-computed by `ExplanationPayloadBuilder` and supplied as facts in their own
-right, removing any legitimate reason for the model to calculate.
-
-The constraint is enforced at three tiers, of decreasing strength:
-
-| Tier | Mechanism | Guarantee |
-|---|---|---|
-| Structural | `AIExplanationService` takes `HttpClient`, `IOptions` and `ILogger` only — no `DbContext`, no analysis service | Cannot reach the database. Compile-time. |
-| Preventive | Closed ledger, formatted strings, filtered prompt, low temperature | Reduces invention. Best-effort. |
-| Detective | `ExplanationVerifier` checks every numeric token against the supplied values | An untraceable figure cannot reach the user unflagged. |
-
-The third tier is the module's contribution. Prevention is best-effort;
-detection is the guarantee.
-
-The ledger returned to the frontend is complete, because the grounding panel
-shows the user everything the analysis produced. The ledger sent to the model
-is filtered — normalised intermediate values, alternative rank ranges and
-observed bounds are withheld — because every fact in the prompt is a figure
-the verifier will accept wherever it appears. Filtering can never cause a
-false positive, since verification still runs against the full ledger.
-
-**Verified across all 55 planning areas.** Deterministic explanations were
-generated for every area, scored and excluded, and checked: 38 scored areas
-yielded 30–32 verifiable figures each, 17 excluded areas 3–5, with zero
-findings in every case.
-
-### Model selection
-
-Two models were compared on the same payload (Jurong East, default weights)
-using identical prompts, with verification run against the full ledger in
-both cases:
-
-| Model | Latency | Figures verified |
-|---|---|---|
-| `gemini-3.6-flash` | 40.5 s | 26 / 26 |
-| `gemini-3.5-flash-lite` | 3.1 s | 23 / 23 |
-
-`gemini-3.5-flash-lite` was selected. Both models produced explanations in
-which every stated figure traced back to a supplied value, so the choice
-turned on latency: 40 seconds is unusable behind a button in a web
-interface, and 3 seconds is not. The larger model wrote marginally better
-connective prose and reached for one additional comparative fact, but the
-difference was small enough to be closed by adjustments to the prompt rather
-than by paying thirteen times the wait.
-
-Thinking could not be disabled on either model — `thinkingConfig` with a
-zero budget is rejected outright — so the latency difference reflects the
-models' default deliberation and is not tunable.
+**T4 — AI output validation.** The intent parser is tested on spoken requests
+including deliberately malformed and out-of-range inputs, measuring correct
+interpretation and correct refusal. Generated instructions are checked for
+landmarks absent from the computed route, measuring the verifier's rejection
+rate.

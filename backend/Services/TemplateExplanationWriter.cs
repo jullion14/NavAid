@@ -24,22 +24,15 @@ public static class TemplateExplanationWriter
     {
         var f = new FactLookup(payload);
 
-        var sections = payload.Subject.IsScored
-            ? new List<ExplanationSection>
-            {
-                Overview(payload, f),
-                Access(payload, f),
-                Score(payload, f),
-                Robustness(payload, f),
-                CaveatSection(payload)
-            }
-            : new List<ExplanationSection>
-            {
-                Overview(payload, f),
-                Access(payload, f),
-                NotRanked(payload),
-                CaveatSection(payload)
-            };
+        var sections = payload.Mode switch
+        {
+            ExplanationMode.Compare => CompareSections(payload, f),
+            ExplanationMode.Rank => new List<ExplanationSection> { Score(payload, f), CaveatSection(payload) },
+            ExplanationMode.Sensitivity => new List<ExplanationSection> { Robustness(payload, f), CaveatSection(payload) },
+            _ => payload.Subject.IsScored
+                ? new List<ExplanationSection> { Overview(payload, f), Access(payload, f), Score(payload, f), Robustness(payload, f), CaveatSection(payload) }
+                : new List<ExplanationSection> { Overview(payload, f), Access(payload, f), NotRanked(payload), CaveatSection(payload) },
+        };
 
         return new ExplanationResult
         {
@@ -50,7 +43,62 @@ public static class TemplateExplanationWriter
             FallbackReason = fallbackReason
         };
     }
+    // =======================================================================
+    /// <summary>
+    /// Compare mode without a model. Keys are prefixed with the area name, so
+    /// the single-subject sections cannot be reused: each lookup has to name
+    /// which area it wants.
+    /// </summary>
+    private static List<ExplanationSection> CompareSections(ExplanationPayload p, FactLookup f)
+    {
+        var a = p.Subject.Name;
+        var b = p.ComparisonSubject?.Name ?? "the other area";
 
+        var intro = new SectionBuilder(f);
+
+        foreach (var name in new[] { a, b })
+        {
+            intro.IfPresent($"{name}::population", (pop, _) =>
+            {
+                intro.Sentence($"{name} has a resident population of {pop}");
+                intro.IfPresent($"{name}::facilities",
+                    (fac, _) => intro.Append($" and {fac} healthcare facilities."),
+                    orElse: () => intro.Append("."));
+            });
+        }
+
+        var diff = new SectionBuilder(f);
+
+        diff.IfPresent("rank_gap", (gap, _) => diff.Sentence($"On the priority ranking they are {gap}."));
+        diff.IfPresent("score_gap", (gap, _) => diff.Sentence($"Their scores differ by {gap}."));
+
+        foreach (var key in new[] { "gap::dist_healthcare", "gap::dist_mrt", "gap::pop_density", "gap::facilities_per_10k" })
+            diff.IfPresent(key, (text, _) => diff.Sentence($"{text}."));
+
+        var ranks = new SectionBuilder(f);
+
+        foreach (var name in new[] { a, b })
+        {
+            ranks.IfPresent($"{name}::rank", (rank, _) =>
+            {
+                ranks.Sentence($"{name} ranks {rank}");
+                ranks.IfPresent($"{name}::score",
+                    (sc, _) => ranks.Append($", scoring {sc}."),
+                    orElse: () => ranks.Append("."));
+            });
+
+            ranks.IfPresent($"{name}::top_contributor", (top, _) =>
+                ranks.Sentence($"Its largest contribution comes from {top.ToLowerInvariant()}."));
+        }
+
+        return new List<ExplanationSection>
+        {
+            intro.Build("The two areas"),
+            diff.Build("Where they differ"),
+            ranks.Build("Why they rank as they do"),
+            CaveatSection(p),
+        };
+    }
     // =======================================================================
 
     private static ExplanationSection Overview(ExplanationPayload p, FactLookup f)
@@ -104,6 +152,10 @@ public static class TemplateExplanationWriter
     private static ExplanationSection Score(ExplanationPayload p, FactLookup f)
     {
         var s = new SectionBuilder(f);
+        // Score facts are absent in modes that do not discuss the ranking.
+        // Without them the direction note and the weight list stand alone,
+        // explaining a score the section never states.
+        if (f.Get("rank") is null) return s.Build("Priority score");
 
         s.IfPresent("rank", (v, _) =>
         {
@@ -148,6 +200,9 @@ public static class TemplateExplanationWriter
     private static ExplanationSection Robustness(ExplanationPayload p, FactLookup f)
     {
         var s = new SectionBuilder(f);
+
+        if (f.Get("rank_held_share") is null && f.Get("rank_range") is null)
+            return s.Build("How robust this is");
 
         s.IfPresent("rank_held_share", (share, _) =>
         {

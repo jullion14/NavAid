@@ -8,7 +8,10 @@ namespace GeoDSS.Api.Services;
 
 public interface IAIExplanationService
 {
-    Task<ExplanationResult> ExplainAsync(ExplanationPayload payload, CancellationToken ct = default);
+    Task<ExplanationResult> ExplainAsync(
+        ExplanationPayload payload,
+        string? modelOverride = null,
+        CancellationToken ct = default);
 }
 
 /// Generates the explanation prose.
@@ -42,12 +45,14 @@ public sealed class AIExplanationService : IAIExplanationService
 
     public async Task<ExplanationResult> ExplainAsync(
         ExplanationPayload payload,
+        string? modelOverride = null,
         CancellationToken ct = default)
     {
-        var hash = PayloadHash(payload);
+        var model = string.IsNullOrWhiteSpace(modelOverride) ? _options.Model : modelOverride;
+        var hash = PayloadHash(payload, model);
 
         // -- Recorded response, if one exists --------------------------------
-        if (_options.Mode is ExplanationMode.Cached or ExplanationMode.Offline)
+        if (_options.Mode is ServiceMode.Cached or ServiceMode.Offline)
         {
             var recorded = await TryReadRecordedAsync(hash, ct);
             if (recorded is not null)
@@ -58,7 +63,7 @@ public sealed class AIExplanationService : IAIExplanationService
             }
         }
 
-        if (_options.Mode == ExplanationMode.Offline)
+        if (_options.Mode == ServiceMode.Offline)
         {
             return TemplateExplanationWriter.Write(payload,
                 "Running in offline mode with no recorded response for this area.");
@@ -73,7 +78,7 @@ public sealed class AIExplanationService : IAIExplanationService
         // -- Live call, one retry -------------------------------------------
         try
         {
-            var sections = await GenerateAsync(payload, ct);
+            var sections = await GenerateAsync(payload, model, ct);
 
             if (_options.RecordResponses)
                 await TryWriteRecordedAsync(hash, sections, ct);
@@ -82,7 +87,7 @@ public sealed class AIExplanationService : IAIExplanationService
 
             _logger.LogInformation(
                 "Explanation for {Area}: model={Model} outcome={Outcome} matched={Matched}/{Checked} findings={Findings}",
-                payload.Subject.Name, _options.Model,
+                payload.Subject.Name, model,
                 result.Verification?.Outcome, result.Verification?.FiguresMatched,
                 result.Verification?.FiguresChecked, result.Verification?.Findings.Count ?? 0);
 
@@ -110,6 +115,7 @@ public sealed class AIExplanationService : IAIExplanationService
 
     private async Task<List<ExplanationSection>> GenerateAsync(
         ExplanationPayload payload,
+        string model,
         CancellationToken ct)
     {
         var request = new
@@ -138,9 +144,9 @@ public sealed class AIExplanationService : IAIExplanationService
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));
 
-        var url = $"{_options.Endpoint}/models/{_options.Model}:generateContent";
-
+        var url = $"{_options.Endpoint}/models/{model}:generateContent";
         var json = JsonSerializer.Serialize(request);
+
         _logger.LogInformation("Gemini request: model={Model} temp={Temp} bodyLength={Len}",
             _options.Model, _options.Temperature, json.Length);
 
@@ -284,12 +290,18 @@ public sealed class AIExplanationService : IAIExplanationService
         var verifiable = string.Join("\n\n",
             sections.Where(s => !s.IsVerbatim).Select(s => s.Body));
 
+        var citedIds = sections
+            .Where(s => !s.IsVerbatim)
+            .SelectMany(s => s.CitedFactIds)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
         return new ExplanationResult
         {
             Source = source,
             Sections = sections,
             Payload = payload,
-            Verification = ExplanationVerifier.Verify(payload, verifiable),
+            Verification = ExplanationVerifier.Verify(payload, verifiable, citedIds),
             FallbackReason = fallbackReason
         };
     }
@@ -301,9 +313,9 @@ public sealed class AIExplanationService : IAIExplanationService
     /// under different weights are different explanations and must not share
     /// a cache entry.
     /// </summary>
-    private string PayloadHash(ExplanationPayload payload)
+    private string PayloadHash(ExplanationPayload payload, string model)
     {
-        var material = _options.Model
+        var material = model
             + _options.Temperature.ToString("0.00")
             + PromptBuilder.SystemInstruction(payload)
             + PromptBuilder.UserMessage(payload);

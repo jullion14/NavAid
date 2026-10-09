@@ -30,7 +30,7 @@ export const BASEMAPS: Record<BasemapKey, Basemap> = {
   dark: {
     key: 'dark',
     label: 'Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_3of4_1_1ab8c1e21f7c5fe13b29e03a',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     theme: 'dark',
     maxZoom: 20,
@@ -38,7 +38,7 @@ export const BASEMAPS: Record<BasemapKey, Basemap> = {
   light: {
     key: 'light',
     label: 'Light',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_3of4_1_1ab8c1e21f7c5fe13b29e03a',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     theme: 'light',
     maxZoom: 20,

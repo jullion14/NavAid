@@ -7,6 +7,7 @@ import type { RankStability } from '../services/sensitivityApi';
 import { colourFor, sectionStyle, surface, scoreColour, type PanelTheme } from './panelStyles';
 import StabilityBar from './StabilityBar';
 import { InfoTip, Callout, HELP } from './InfoTip';
+import ExplanationPanel from './ExplanationPanel';
 
 interface Props {
   data: PriorityScoreResponse | null;
@@ -148,6 +149,15 @@ export default function AnalysisView({
 
         {data?.warnings.map(w => <p key={w} style={s.warning}>{w}</p>)}
       </section>
+
+      {/* ---- explanation ---- */}
+      <ExplanationPanel
+        planningAreaId={selectedAreaId}
+        areaName={data?.results.find(r => r.planningAreaId === selectedAreaId)?.name ?? null}
+        weights={weights}
+        theme={theme}
+        comparableAreas={data?.results.map(r => ({ id: r.planningAreaId, name: r.name })) ?? []}
+      />
 
       {/* ---- ranked table ---- */}
       <section style={s.card}>

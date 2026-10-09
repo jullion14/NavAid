@@ -29,9 +29,20 @@ public sealed class VerificationReport
     public required IReadOnlyList<VerificationFinding> Findings { get; init; }
 
     /// <summary>Badge text for the panel, e.g. "9 of 9 figures matched the computed values".</summary>
-    public string Summary => Outcome == VerificationOutcome.Verified
-        ? $"{FiguresMatched} of {FiguresChecked} figures matched the computed values"
-        : $"{FiguresChecked - FiguresMatched} of {FiguresChecked} figures could not be traced to a computed value";
+    public string Summary
+    {
+        get
+        {
+            var untraced = FiguresChecked - FiguresMatched;
+
+            if (Outcome == VerificationOutcome.Verified)
+                return $"{FiguresMatched} of {FiguresChecked} figures matched the computed values";
+
+            return untraced > 0
+                ? $"{untraced} of {FiguresChecked} figures could not be traced to a computed value"
+                : $"{FiguresMatched} of {FiguresChecked} figures matched, but a citation could not be resolved";
+        }
+    }
 }
 
 public sealed class VerificationFinding

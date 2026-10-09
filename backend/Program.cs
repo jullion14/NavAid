@@ -1,4 +1,5 @@
 using GeoDSS.Api.Services;
+using GeoDSS.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -82,7 +83,7 @@ app.MapGet("/api/_debug/payload/{id:int}", async (
     IExplanationPayloadBuilder builder,
     CancellationToken ct) =>
 {
-    var payload = await builder.BuildForAreaAsync(id, null, ct);
+    var payload = await builder.BuildAsync(ExplanationMode.Area, id, null, null, ct);
     return payload is null ? Results.NotFound() : Results.Ok(payload);
 });
 
@@ -91,7 +92,7 @@ app.MapGet("/api/_debug/explain/{id:int}", async (
     IExplanationPayloadBuilder builder,
     CancellationToken ct) =>
 {
-    var payload = await builder.BuildForAreaAsync(id, null, ct);
+    var payload = await builder.BuildAsync(ExplanationMode.Area, id, null, null, ct);
     if (payload is null) return Results.NotFound();
 
     var result = TemplateExplanationWriter.Write(payload);
@@ -115,7 +116,7 @@ app.MapGet("/api/_debug/prompt/{id:int}", async (
     IExplanationPayloadBuilder builder,
     CancellationToken ct) =>
 {
-    var payload = await builder.BuildForAreaAsync(id, null, ct);
+    var payload = await builder.BuildAsync(ExplanationMode.Area, id, null, null, ct);
     if (payload is null) return Results.NotFound();
 
     return Results.Ok(new
@@ -127,18 +128,25 @@ app.MapGet("/api/_debug/prompt/{id:int}", async (
     });
 });
 
-app.MapGet("/api/_debug/ai/{id:int}", async (
-    int id,
-    IExplanationPayloadBuilder builder,
-    IAIExplanationService ai,
-    CancellationToken ct) =>
+app.MapGet("/api/_debug/compare/{a:int}/{b:int}", async (
+    int a, int b, IExplanationPayloadBuilder builder, CancellationToken ct) =>
 {
-    var payload = await builder.BuildForAreaAsync(id, null, ct);
-    if (payload is null) return Results.NotFound();
-
-    var result = await ai.ExplainAsync(payload, ct);
-    return Results.Ok(result);
+    var payload = await builder.BuildAsync(ExplanationMode.Compare, a, b, null, ct);
+    return payload is null ? Results.NotFound() : Results.Ok(payload);
 });
+
+//app.MapGet("/api/_debug/ai/{id:int}", async (
+//    int id,
+//    IExplanationPayloadBuilder builder,
+//    IAIExplanationService ai,
+//    CancellationToken ct) =>
+//{
+//    var payload = await builder.BuildForAreaAsync(id, null, ct);
+//    if (payload is null) return Results.NotFound();
+
+//    var result = await ai.ExplainAsync(payload, ct);
+//    return Results.Ok(result);
+//});
 // =============================================================================
 
 app.MapControllers();

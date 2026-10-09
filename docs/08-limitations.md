@@ -1,169 +1,135 @@
 # Limitations
 
-> Part of the GeoDSS reference docs. See [`README.md`](../README.md) for the index.
+> Part of the Landmark-Guided Walking Navigation reference docs. See [`README.md`](README.md) for the index.
 
-Known weaknesses of the analysis, recorded as they were encountered rather than
-reconstructed at the end. Each is a deliberate position, not an oversight — the
-report should state them rather than let an examiner find them.
+Known weaknesses, recorded as they are encountered rather than reconstructed at
+the end. Each is a deliberate position, not an oversight — the report should
+state them rather than let an examiner find them.
 
 ## Data
 
-**1. Population is a 2025 snapshot against current facility and transit data.**
-Per-capita rates therefore mix vintages. The mismatch is small but real.
+**1. OpenStreetMap pedestrian coverage is uneven for exactly the attributes the
+cost function needs.** Footway geometry in Singapore HDB estates is good, but the
+tags the routing depends on — `covered` for sheltered walkways, `surface`,
+`incline`, `wheelchair`, kerb-ramp presence at crossings — are tagged
+inconsistently and in places not at all. An untagged sheltered link is
+indistinguishable from an uncovered one, so the shelter preference is applied
+only where the data supports it. Coverage should be measured and reported per
+tag rather than assumed.
 
-**2. Denominator changed mid-project.** Population is now all residents, not
-HDB residents. Facilities-per-10k figures shifted accordingly between the
-midterm and final states of the project. Stated explicitly so the numbers do
-not appear to move without explanation.
+**2. Go-To Point coverage is retail-skewed.** Median spacing is roughly 210 m,
+but the points cluster along shop frontages and are thin inside residential
+blocks — which is where disorientation actually happens. The fallback in
+[`06-decisions-and-gotchas.md`](06-decisions-and-gotchas.md) (D5) is therefore
+better in town centres than in the places it would most help.
 
-**3. Figures are rounded to the nearest 10 at source**, so age and dwelling
-components do not always sum to the published total (Ang Mo Kio: bands sum to
-158,740 against a stated 158,720). The published total is always used; a
-computed sum never is.
+**3. Go-To Point opening hours are free text.** "Mon-Fri 9am-6pm, Sat 9am-1pm"
+and "24 hours" sit in one string column. No open-now filtering is performed, so
+the application can route someone to a shuttered shopfront. Temporal filtering
+is out of scope and stated as such.
 
-**4. Percentages are suppressed below 1,000 residents.** Rounding plus "-"
-cells make them meaningless at that scale — seven areas produced 0% across all
-bands, and Western Water Catchment summed to 105.2%.
+**4. The Go-To Point set is a 2024 snapshot.** Roughly four-fifths of records
+were last updated September 2024, a minority earlier. Participating businesses
+close and change hands, so some proportion of the set is stale and the project
+has no way to measure how much.
+
+**5. Some Go-To Point records are station-level rather than shop-level**, so
+their coordinate can be tens of metres from where help would actually be found.
+
+**6. Landmark salience is judgement-based.** The salience values that drive the
+landmark discount were assigned by reasoning about the domain — a polyclinic is
+more recognisable than a bus stop — not derived from any measurement of what
+older adults in these estates actually notice or remember. Salience research
+exists; this project does not replicate it.
 
 ## Method
 
-**5. Min-max normalisation is outlier-sensitive.** Bounds come from the data
-and are shared across areas, so a single extreme value compresses everything
-else. The 1,000-resident floor removes the worst cases, but the sensitivity
-remains structural. Winsorising at the 5th/95th percentile was considered and
-not implemented. Observed bounds are surfaced in the UI so the effect is at
-least visible.
+**7. Gait speeds come from the literature, not from measurement.** The `default`
+profile (1.10 m/s) and `limited` profile (0.80 m/s) are anchored to published
+figures for older Singaporean adults. No one in the target population was timed
+for this project. The profiles describe plausible walkers, not these walkers.
 
-**6. Default weights are judgement-based.** 0.35 / 0.25 / 0.25 / 0.15 were set
-by reasoning about the domain, not derived through AHP pairwise comparison,
-PCA, or expert elicitation. Defensible for a prototype, but unvalidated.
+**8. The researcher does not match the `limited` profile.** Field verification
+is walked by a 20-something student. Timing, fatigue, and the subjective
+difficulty of a staircase or an unsheltered stretch are therefore not observed
+as the intended user would experience them. The GPS traces verify that the route
+is walkable and the instructions match what is visible; they say nothing about
+whether it is comfortable.
 
-**7. Weighted linear combination is fully compensatory.** A strong score on one
-criterion can entirely offset a weak score on another, so an area badly
-underserved on exactly one dimension can still rank mid-table. Non-compensatory
-methods — TOPSIS, ELECTRE-style outranking — avoid this and were not
-implemented.
+**9. Cost-function penalty weights are judgement-based.** The decision-point
+penalty, the landmark discount, and the familiarity discount are set by
+reasoning about their relative importance — familiarity strongest, then
+landmarks, then decision points — not calibrated against observed wayfinding
+performance. Defensible for a prototype, unvalidated.
 
-**8. Treating higher population density as raising priority is a normative
-choice**, not a neutral property of the data. It encodes a judgement that
-affected headcount should count toward urgency.
+**10. Three discrete profiles, not a continuous model.** A continuous speed or
+ability parameter would imply precision the underlying data does not have (see
+7). The trade-off is that a walker who falls between profiles gets the nearer
+one.
 
-**9. Scores are relative, not absolute.** A score of 0.7 means "high relative
-to these 38 areas", not "0.7 of some standard of adequacy". Scores from
-different area sets are not comparable, and none of them speak to whether
-provision is adequate in absolute terms.
+**11. The cost function is compensatory.** A route can accumulate a large
+landmark and familiarity discount and so be preferred despite having more
+decision points than an alternative. This is intended — the discounts are the
+mechanism — but it means no single term can veto a route, and a pathological
+case (a very familiar route that is also very complex) is possible in principle.
 
-**10. Straight-line distance from a single representative point.**
-`ST_PointOnSurface` guarantees an interior point, but one point stands in for a
-whole planning area, and geodesic distance is not travel distance. Actual
-journeys are longer and vary with the road and rail network.
-
-The probe point feature makes the first half of this measurable: placing
-several points inside one planning area reports the spread in nearest-facility
-distance directly, rather than leaving it asserted. The second half — straight
-line versus travel distance — remains unaddressed and would require a routing
-engine or network dataset.
-
-**11. Non-contiguous and very-low-density areas score unusually.** Southern
-Islands ranks first under default weights, scoring a maximum 1.0 on distance to
-healthcare, facilities per 10k, and distance to MRT simultaneously. The
-arithmetic is correct, but land-based accessibility metrics do not describe
-offshore areas meaningfully. Retained rather than excluded, because removing
-inconvenient results is worse than explaining them.
-
-## Sensitivity analysis
-
-**12. Weight uncertainty only.** Uncertainty in the underlying data — the 2025
-population figures, facility geocoding accuracy, straight-line distance as a
-proxy for travel — is not propagated. A full treatment would perturb inputs as
-well as weights.
-
-**13. The Dirichlet concentration parameter (default 40) is itself a
-judgement** about what counts as a plausible alternative weighting. A lower
-value would widen every stability interval. Documented but not empirically
-grounded.
-
-**14. Stability is measured against one aggregation method.** An area stable
-under WLC might rank very differently under TOPSIS. The intervals describe
-robustness to weights, not robustness to method choice.
-
-**15. The weight sweep varies one criterion at a time.** Crossovers involving
-two criteria moving together are not shown.
+**12. GPS accuracy degrades under exactly the cover the system prefers.**
+Sheltered walkways, void decks and linkways are the routes the cost function
+favours, and they are also where consumer GPS is worst. Deviation detection and
+field verification are both least reliable in the conditions the application
+most often creates. Threshold tuning can mitigate this; it cannot remove it.
 
 ## Scope
 
-**16. Planning area is the unit of analysis.** Subzone boundaries join
-perfectly (332/332) and would address the representative-point limitation, but
-changing the unit would require reworking the scoring module. Deferred as
-viable future work, not rejected.
+**13. Walking only.** No public transport or vehicle routing. Journeys beyond a
+walkable threshold are redirected to the nearest Go-To Point rather than routed.
+A walker who needs to cross town is therefore handed to a person, not guided
+home — which is the intended behaviour, but it is a boundary, not a feature.
 
-**17. Bus accessibility is descriptive context, not a scored input.** All four
-candidate metrics failed construct validity — see
-[`05-methodology.md`](05-methodology.md). The underlying constraint is that bus
-accessibility needs household-level measurement, which is the same reason
-building-level analysis is out of scope.
+**14. Foreground use only.** The application guides a journey the user starts
+and has open. It does not monitor location in the background, does not detect
+wandering, and cannot alert anyone to a journey the walker did not initiate in
+the app. Browser background location is the hard constraint; the alternative was
+a native mobile app, which was out of scope for a single-student eight-month
+project.
 
-**18. Upload functionality is scoped to display-only map layers**, not
-integrated into the analysis engine. Generalised ingestion was deliberately
-excluded.
+**15. Deviation alerting makes no claim about intent.** It fires when the walker
+leaves the computed route, not when the walker is lost. These are different
+events and the report should not conflate them.
 
-**19. No authentication.** The application holds no user data and persists
-nothing between sessions: weights are ephemeral, and all source data is public.
-Authentication was therefore not implemented, since there is no resource to
-protect. A production deployment would need it, and it would become a genuine
-requirement if saved scenarios or an audit trail ("this ranking was produced by
-X on date Y with these weights") were added. Both are noted as future work
-rather than omissions.
+**16. The landmark survey covers a single estate.** Caregiver-entered landmarks
+and the quality check on route-derived landmarks are done for one study area.
+Nothing demonstrates that the approach generalises to estates with different
+built form.
 
-**20. Probe points are a query tool, not an analysis input.** They measure
-accessibility at arbitrary locations but never feed the priority score, so the
-unit of analysis remains the planning area. A reader who sees point-level
-interaction should not infer that the scoring unit changed.
+**17. Web Speech recognition support is uneven.** It works well in Chrome on
+Android and acceptably in Safari on iOS, but iOS behaviour around continuous
+recognition and permission re-prompting is less reliable. A text-entry path
+exists as a fallback, which partly defeats the purpose for a user who cannot
+read a screen comfortably.
 
-**21. Facility markers cannot be clicked while the planning-areas layer is visible.** The polygon captures the click. Leaflet resolves this with pane
-ordering, but pane-based click-through does not compose with the canvas
-renderer, and canvas rendering is required to keep ~5,900 markers
-responsive. Toggling the layer off is the workaround. Moving the three
-smaller point layers to SVG while leaving bus stops on canvas would fix it,
-at the cost of a mixed rendering strategy.
+**18. No clinical claim and no validation with the target population.** The
+project is a navigation aid, not a diagnostic or care tool. No one with dementia
+or at risk of disorientation participated in its design or testing — ethics
+approval and recruitment for that are beyond the project's scope and timeline.
+Every usability claim is therefore inferred from the literature and from the
+researcher's own walking, and should be read that way.
 
-**22. Geolocation is environment-dependent.** It requires a secure context
-(localhost qualifies; http://192.168.x.x does not), an enabled OS location
-service, and an unblocked network lookup — desktop machines have no GPS.
-Failures surface as an explicit message rather than silently. Probe points
-cover the same analytical ground without the hardware dependency.
+**19. Evaluation is researcher-walked, not user-tested.** T2 compares routes
+quantitatively and T3 verifies them in the field, but neither measures whether
+an older adult at risk of disorientation follows them more successfully than a
+conventional route. That is the claim the project is built around and the one it
+cannot test. It is the single most important limitation in this document and the
+clearest line of future work.
 
-**23. Bus service identity is not stored, only the count per stop.**
-Searching by service number ("which stops serve 972") is therefore
-unsupported. The ETL sees the individual services when deriving
-service_count, so this is a retention decision rather than a data
-limitation.
+**20. No credentialed accounts, and the device-pairing question is open.** Saved
+destinations and recorded routes persist server-side against a household
+identifier. How the caregiver's device and the walker's device come to share
+that identifier is unresolved — see O1 in
+[`06-decisions-and-gotchas.md`](06-decisions-and-gotchas.md). A production
+deployment would need real authentication; this prototype does not have it.
 
-## AI explanation module
-
-**24. Verification catches novel figures, not misapplied ones.** Every
-numeric token in the model's output is checked against the set of values
-supplied to it. A figure that was never supplied is flagged. A figure that
-*was* supplied but is attached to the wrong claim is not: if the ledger
-contains a rank of 16 and a swing of 23, the model can state either number
-against either claim and the check passes. Provenance is guaranteed;
-attribution is not. The prompt ledger is deliberately filtered to reduce the
-supply of interchangeable-looking figures, and per-section `citedFactIds`
-provide the material for an attribution check, but that check is not yet
-implemented.
-
-**25. Non-numeric claims are unverifiable.** The check operates on figures.
-A sentence containing no numbers — a characterisation of an area, a causal
-suggestion, a framing of what the score implies — passes unexamined. The
-prompt constrains these through instruction only, which is the weakest tier
-of the three.
-
-**26. The AI layer is optional to correctness by design.**
-`TemplateExplanationWriter` produces the same sections from the same ledger
-with no model involved. This is a strength rather than a limitation, but it
-sets the ceiling on what the AI contributes: readability, not accuracy. No
-figure in a model-authored explanation is more correct than the same figure
-in the deterministic one.
-
-**27. Fact selection varies between runs.**
-At temperature 0.2 the same payload produced explanations citing different subsets of the ledger — one run omitted the sensitivity swing figure that gives "volatile" its meaning. Verification guarantees every figure stated is correct; nothing guarantees the same figures are stated each time. The section specification in the prompt constrains this but does not eliminate it.
+**21. GP clinics and polyclinics are landmarks only, never destinations.** They
+are named in instructions because they are recognisable buildings. Offering them
+as destinations would edge the project toward a care-navigation claim it does
+not make.
