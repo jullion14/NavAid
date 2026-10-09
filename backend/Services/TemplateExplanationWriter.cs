@@ -1,7 +1,7 @@
 ﻿using System.Text;
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 
-namespace GeoDSS.Api.Services;
+namespace NavAid.Api.Services;
 
 /// <summary>
 /// Deterministic explanation writer. Produces the same sections as the AI path

@@ -1,5 +1,5 @@
 """
-GeoDSS — LTA DataMall bus data fetcher
+NavAid — LTA DataMall bus data fetcher
 ======================================
 
 Fetches bus stop locations (and, optionally, bus route information) from the

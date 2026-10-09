@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 [Route("api/[controller]")]
 public class PlanningAreasController : ControllerBase
 {
-    private readonly GeoDssDbContext _db;
-    public PlanningAreasController(GeoDssDbContext db) => _db = db;
+    private readonly NavAidDbContext _db;
+    public PlanningAreasController(NavAidDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<IActionResult> GetAll()

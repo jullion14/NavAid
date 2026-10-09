@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LAYER_META, type LayerKey } from './useMapLayers';
 
-const STORAGE_KEY = 'geodss.layerColours';
+const STORAGE_KEY = 'navaid.layerColours';
 
 export const DEFAULT_COLOURS = Object.fromEntries(
   (Object.keys(LAYER_META) as LayerKey[]).map(k => [k, LAYER_META[k].color]),

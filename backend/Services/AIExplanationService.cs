@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 using Microsoft.Extensions.Options;
 
-namespace GeoDSS.Api.Services;
+namespace NavAid.Api.Services;
 
 public interface IAIExplanationService
 {

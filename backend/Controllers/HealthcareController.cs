@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 [Route("api/[controller]")]
 public class HealthcareController : ControllerBase
 {
-    private readonly GeoDssDbContext _db;
-    public HealthcareController(GeoDssDbContext db) => _db = db;
+    private readonly NavAidDbContext _db;
+    public HealthcareController(NavAidDbContext db) => _db = db;
 
     [HttpGet("geojson")]
     public async Task<IActionResult> GetGeoJson([FromQuery] string? type)

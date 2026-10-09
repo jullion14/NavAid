@@ -1,10 +1,10 @@
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 public class SpatialAnalysisService
 {
-    private readonly GeoDssDbContext _db;
-    public SpatialAnalysisService(GeoDssDbContext db) => _db = db;
+    private readonly NavAidDbContext _db;
+    public SpatialAnalysisService(NavAidDbContext db) => _db = db;
 
     private const string MetricsSql = @"
 WITH a AS (

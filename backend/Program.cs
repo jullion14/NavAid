@@ -1,5 +1,5 @@
-using GeoDSS.Api.Services;
-using GeoDSS.Api.Models;
+using NavAid.Api.Services;
+using NavAid.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,7 +30,7 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
-builder.Services.AddDbContext<GeoDssDbContext>(options =>
+builder.Services.AddDbContext<NavAidDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("Default"),
         o => o.UseNetTopologySuite()    

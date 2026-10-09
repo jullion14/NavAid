@@ -1,4 +1,4 @@
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]

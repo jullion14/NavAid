@@ -1,6 +1,6 @@
-﻿using GeoDSS.Api.Models;
+﻿using NavAid.Api.Models;
 
-namespace GeoDSS.Api.Services;
+namespace NavAid.Api.Services;
 
 public interface IPriorityScoringService
 {

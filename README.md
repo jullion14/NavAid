@@ -1,150 +1,93 @@
-# GeoDSS
+# Landmark-Guided Walking Navigation
 
-A web-based Geospatial Decision Support System for analysing healthcare and
-transport accessibility across Singapore's planning areas.
+A web-based walking navigation aid for older adults at risk of disorientation in
+Singapore's public housing estates. Routes are optimised for ease of following
+rather than length — minimising decision points, preferring paths the user
+already knows, and describing the way by physical landmarks rather than street
+names. An LLM handles speech in and speech out; it performs none of the routing
+and every landmark it names is checked against the computed route before it is
+spoken.
 
-Deterministic PostGIS analysis computes the accessibility metrics and a
-multi-criteria priority score. An LLM explains the results in plain language —
-it never performs the analysis. Every weight, normalisation bound and formula
-is exposed through the API and displayed in the interface, so a ranking can
-always be traced back to the numbers that produced it.
-
-CEG3001 Capstone Project · Singapore Institute of Technology
-
----
-
-## What it does
-
-**Maps the data.** Planning area boundaries, 237 GP clinics, 26 polyclinics,
-613 MRT station exits and around 5,000 bus stops, on four switchable basemaps
-with the panel theme following the map.
-
-**Computes accessibility per area.** Population density, facilities per 10,000
-residents, distance to the nearest healthcare facility and MRT exit, and bus
-service context — all from PostGIS, all deterministic.
-
-**Ranks areas by priority.** A weighted linear combination over min-max
-normalised criteria. Weights are adjustable, the formula is displayed as it
-runs, and each area's score breaks down into `weight × normalised =
-contribution` per criterion.
-
-**Tests how much the ranking depends on your choices.** Every area is re-scored
-under 1,000 sampled weightings. The table shows where each area would rank if
-the factors were weighted differently; the side panel shows which criterion
-drives the area you have selected.
-
-**Measures from any point.** Click anywhere to get the straight-line distance
-to the nearest clinic, MRT exit and bus stop. Place several points inside one
-planning area and the panel reports the spread — which is the variation a
-single representative point per area cannot capture.
-
-## Screenshots
-
-<!-- Add two or three:
-     1. Map view with priority choropleth and a selected area
-     2. Analysis view with weights, formula and the ranked table
-     3. Probe points inside one planning area showing the distance spread
--->
-
-## Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React + TypeScript (Vite), Leaflet via react-leaflet |
-| Backend | ASP.NET Core Web API (.NET 10), EF Core, NetTopologySuite |
-| Database | PostgreSQL 18 + PostGIS 3.6 |
-| ETL | Python (psycopg2, openpyxl) |
-| AI | Google Gemini API |
-
-All data is public, from [data.gov.sg](https://data.gov.sg) — URA, MOH,
-SingStat and LTA. Spatial data is WGS84 / EPSG:4326 throughout, with no
-reprojection.
-
-## Getting started
-
-**Prerequisites:** PostgreSQL 18 with PostGIS, .NET 10 SDK, Node.js, Python 3.
-
-```bash
-# database
-createdb geodss_db
-psql geodss_db -c "CREATE EXTENSION postgis;"
-
-# data
-pip install psycopg2-binary openpyxl requests
-python import_data.py --dry-run     # validate the source files first
-python import_data.py               # create schema and import
-
-# backend
-cd backend && dotnet run            # http://localhost:5170
-
-# frontend
-cd frontend && npm install && npm run dev
-```
-
-Copy `frontend/.env.example` to `frontend/.env` — it needs
-`VITE_API_URL=http://localhost:5170`.
-
-Bus stops are optional. Without `bus_stops.geojson` the import prints a note
-and everything else loads, so a tester without an LTA DataMall key still gets a
-working database.
-
-Full instructions in [`docs/01-setup.md`](docs/01-setup.md).
-
-## API
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/planningareas/geojson` | Planning area polygons |
-| `GET /api/healthcare/geojson?type=GP\|Polyclinic` | Facility points |
-| `GET /api/transit/geojson` | MRT exits |
-| `GET /api/analysis/area/{id}` | Accessibility metrics for one area |
-| `GET /api/analysis/areas` | Metrics for all scored areas |
-| `GET /api/analysis/point?lat=&lng=` | Accessibility at any location |
-| `GET /api/analysis/priority-config` | Criteria, directions, default weights |
-| `POST /api/analysis/priority-score` | Score and rank under given weights |
-| `POST /api/analysis/sensitivity` | Rank stability and tornado effects |
-
-## Documentation
-
-| Doc | Contents |
-|---|---|
-| [01 · Setup](docs/01-setup.md) | Fresh clone to running app |
-| [02 · Data sources](docs/02-data-sources.md) | Datasets, source quirks, what was rejected |
-| [03 · Database schema](docs/03-database-schema.md) | Tables, columns, indexes |
-| [04 · Architecture](docs/04-architecture.md) | Repository layout, what each file does |
-| [05 · Methodology](docs/05-methodology.md) | Metrics, scoring, sensitivity, point queries |
-| [06 · Decisions and gotchas](docs/06-decisions-and-gotchas.md) | Things that cost time once |
-| [07 · Roadmap](docs/07-roadmap.md) | Milestones and what's outstanding |
-| [08 · Limitations](docs/08-limitations.md) | Known weaknesses, recorded as encountered |
-
-## Design principles
-
-**The analysis is deterministic and auditable.** Nothing in the scoring path is
-probabilistic. Weights, normalisation bounds and the formula are served by the
-API and rendered from that response, so the model displayed is always the model
-that ran. Where randomness is unavoidable — the Monte Carlo sensitivity
-sampling — the seed is fixed and returned with the results, so any figure can
-be reproduced exactly.
-
-**The AI explains; it does not calculate.** The Gemini module receives
-pre-computed score components, sensitivity results and rankings, and turns them
-into prose. It performs no arithmetic and makes no decisions.
-
-**Limitations are documented, not hidden.** Min-max normalisation is
-outlier-sensitive; weights are set by judgement rather than formal elicitation;
-weighted linear combination is fully compensatory; distances are straight-line
-rather than travel-time. All known limitations are listed in
-[`docs/08-limitations.md`](docs/08-limitations.md) with the reasoning behind
-each.
+CEG3001 Capstone Project — Singapore Institute of Technology.
 
 ## Status
 
-Data pipeline, spatial analysis, decision support, sensitivity analysis and
-point queries are complete. The AI explanation module is the remaining major
-build.
+| Module | State |
+|---|---|
+| Pedestrian network import (OSM → osm2pgrouting) | Not started |
+| Go-To Point import and deduplication | Not started |
+| Baseline shortest-path routing | Not started |
+| Landmark store and caregiver entry | Not started |
+| Decision-point and landmark cost function | Not started |
+| Intent parsing and validation | Not started |
+| Instruction generation and verification | Not started |
+| Navigation and caregiver views | Not started |
+| Field verification with GPS traces | Not started |
 
-| AI explanation module (Gemini) | Ledger, verifier and deterministic fallback done; model call outstanding |
+Carried over from the previous direction and still usable: PostGIS database and
+ETL scaffolding, Leaflet map shell, backend project structure, Gemini API
+client.
 
-Authentication is deliberately not implemented — the application holds no user
-data and persists nothing between sessions, so there is no resource to protect.
-See limitation 19.
+## Stack
+
+- **Frontend** React + TypeScript (Vite), Leaflet via react-leaflet
+- **Backend** ASP.NET Core Web API (.NET 10), controllers-based, `GeoDSS.Api`
+- **Database** PostgreSQL 18 + PostGIS 3.6 + **pgRouting**, EF Core + NetTopologySuite
+- **Routing data** OpenStreetMap Singapore extract via `osm2pgrouting`
+- **ETL** Python + psycopg2
+- **Desktop GIS** QGIS (visual verification of imported geometry)
+- **AI** Google Gemini API — language only, never computation
+- **Speech** Web Speech API (browser-native transcription and synthesis)
+- **Validation baseline** OneMap Routing API (SLA)
+
+## Quick start
+
+```bash
+createdb navaid_db
+psql navaid_db -c "CREATE EXTENSION postgis; CREATE EXTENSION pgrouting;"
+
+pip install psycopg2-binary requests
+python import_osm.py              # OSM extract -> routable network
+python import_data.py             # Go-To Points, boundaries, landmark sources
+
+cd backend  && dotnet run                      # http://localhost:5170
+cd frontend && npm install && npm run dev
+```
+
+Full instructions: [`docs/01-setup.md`](docs/01-setup.md).
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [`01-setup.md`](docs/01-setup.md) | Fresh clone to running app |
+| [`02-data-sources.md`](docs/02-data-sources.md) | Datasets, source quirks, what was rejected and why |
+| [`03-database-schema.md`](docs/03-database-schema.md) | Tables, columns, indexes |
+| [`04-architecture.md`](docs/04-architecture.md) | Repository layout, what each file does |
+| [`05-methodology.md`](docs/05-methodology.md) | Cost function, landmark model, evaluation — the report-facing document |
+| [`06-decisions-and-gotchas.md`](docs/06-decisions-and-gotchas.md) | Decisions taken, and things that cost time once |
+| [`07-roadmap.md`](docs/07-roadmap.md) | Milestones and what's outstanding |
+| [`08-limitations.md`](docs/08-limitations.md) | Known weaknesses, recorded as encountered |
+
+## Design principle
+
+All spatial computation is deterministic and reproducible. The LLM appears at
+two points only — converting a spoken request into a structured query, and
+phrasing a supplied list of facts as spoken directions — and each is followed
+immediately by a deterministic check. An intent that names an unknown
+destination is rejected rather than guessed at; an instruction naming a landmark
+absent from the computed route is discarded in favour of a template.
+
+The model is therefore swappable without touching the routing engine or
+weakening any guarantee the system makes.
+
+## Scope
+
+Walking routes only, used in the foreground while the device is held. The system
+routes anywhere the OpenStreetMap pedestrian network covers; the landmark survey
+and field evaluation are confined to one estate. Where a destination lies beyond
+a configurable walking threshold, the system routes to the nearest Dementia
+Go-To Point instead of attempting a journey the user cannot complete.
+
+Out of scope: vehicle and public transport routing, background location
+tracking, credentialed account management, and any clinical or diagnostic claim.

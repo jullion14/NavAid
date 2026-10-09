@@ -1,8 +1,8 @@
 ﻿using System.Text;
 using System.Text.Json;
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 
-namespace GeoDSS.Api.Services;
+namespace NavAid.Api.Services;
 
 /// <summary>
 /// Turns an ExplanationPayload into the text sent to the model.

@@ -1,8 +1,8 @@
 ﻿using System.Globalization;
 using System.Text.RegularExpressions;
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 
-namespace GeoDSS.Api.Services;
+namespace NavAid.Api.Services;
 
 /// <summary>
 /// Post-generation check that every figure in the model's output traces back to

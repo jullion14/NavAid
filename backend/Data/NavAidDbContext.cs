@@ -1,9 +1,9 @@
-using GeoDSS.Api.Models;
+using NavAid.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
-public class GeoDssDbContext : DbContext
+public class NavAidDbContext : DbContext
 {
-    public GeoDssDbContext(DbContextOptions<GeoDssDbContext> options) : base(options) { }
+    public NavAidDbContext(DbContextOptions<NavAidDbContext> options) : base(options) { }
 
     public DbSet<PlanningArea> PlanningAreas => Set<PlanningArea>();
     public DbSet<Population> Populations => Set<Population>();

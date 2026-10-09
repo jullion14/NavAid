@@ -1,4 +1,4 @@
-﻿namespace GeoDSS.Api.Models
+﻿namespace NavAid.Api.Models
 {
     public class AccessibilityMetrics
     {

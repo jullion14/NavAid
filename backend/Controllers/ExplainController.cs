@@ -1,8 +1,8 @@
-using GeoDSS.Api.Models;
-using GeoDSS.Api.Services;
+using NavAid.Api.Models;
+using NavAid.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GeoDSS.Api.Controllers;
+namespace NavAid.Api.Controllers;
 
 /// <summary>
 /// HTTP surface for the explanation module.

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-namespace GeoDSS.Api.Models;
+namespace NavAid.Api.Models;
 
 public enum ExplanationSource
 {

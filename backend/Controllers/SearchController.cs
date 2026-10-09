@@ -1,16 +1,16 @@
-﻿using GeoDSS.Api.Models;
-using GeoDSS.Api.Services;
+﻿using NavAid.Api.Models;
+using NavAid.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace GeoDSS.Api.Controllers;
+namespace NavAid.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class SearchController : ControllerBase
 {
-    private readonly GeoDssDbContext _db;
-    public SearchController(GeoDssDbContext db) => _db = db;
+    private readonly NavAidDbContext _db;
+    public SearchController(NavAidDbContext db) => _db = db;
 
     public record SearchHit(
         string Type, long Id, string Name, string? Subtitle,

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace GeoDSS.Api.Models;
+namespace NavAid.Api.Models;
 
 /// <summary>
 /// Whether a higher raw value pushes an area UP the priority list (Benefit)

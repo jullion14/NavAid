@@ -1,4 +1,4 @@
-﻿namespace GeoDSS.Api.Services;
+﻿namespace NavAid.Api.Services;
 
 public enum ServiceMode
 {

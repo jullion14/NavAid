@@ -1,5 +1,5 @@
 """
-GeoDSS — database setup and data import
+NavAid — database setup and data import
 =======================================
 
 Creates the PostGIS schema and imports every dataset the application needs.
@@ -10,8 +10,8 @@ SETUP
 -----
 1. Create the database and enable PostGIS:
 
-       CREATE DATABASE geodss_db;
-       \\c geodss_db
+       CREATE DATABASE navaid_db;
+       \\c navaid_db
        CREATE EXTENSION postgis;
 
 2. Install dependencies:
@@ -64,7 +64,7 @@ from psycopg2.extras import execute_values
 DB_CONFIG = {
     "host":     os.getenv("PGHOST", "localhost"),
     "port":     int(os.getenv("PGPORT", 5432)),
-    "dbname":   os.getenv("PGDATABASE", "geodss_db"),
+    "dbname":   os.getenv("PGDATABASE", "navaid_db"),
     "user":     os.getenv("PGUSER", "postgres"),
     "password": os.getenv("PGPASSWORD", "Chelseafc14"),  # <-- change this
 }
@@ -595,7 +595,7 @@ def validate_only():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create the GeoDSS schema and import all datasets."
+        description="Create the NavAid schema and import all datasets."
     )
     parser.add_argument("--dry-run", action="store_true",
                         help="validate source files without touching the database")

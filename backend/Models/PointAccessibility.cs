@@ -1,4 +1,4 @@
-﻿namespace GeoDSS.Api.Models;
+﻿namespace NavAid.Api.Models;
 
 /// <summary>
 /// Accessibility at an arbitrary point, as opposed to a whole planning area.

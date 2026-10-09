@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 [Route("api/[controller]")]
 public class TransitController : ControllerBase
 {
-    private readonly GeoDssDbContext _db;
-    public TransitController(GeoDssDbContext db) => _db = db;
+    private readonly NavAidDbContext _db;
+    public TransitController(NavAidDbContext db) => _db = db;
 
     [HttpGet("geojson")]
     public async Task<IActionResult> GetGeoJson()
