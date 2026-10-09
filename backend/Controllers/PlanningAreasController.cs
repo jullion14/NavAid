@@ -16,11 +16,11 @@ public class PlanningAreasController : ControllerBase
             .ToListAsync();
         return Ok(areas);
     }
+
     [HttpGet("geojson")]
     public async Task<IActionResult> GetGeoJson()
     {
         var areas = await _db.PlanningAreas
-            .Include(a => a.Population)
             .ToListAsync();
 
         var features = areas.Select(a => new
@@ -31,9 +31,7 @@ public class PlanningAreasController : ControllerBase
             {
                 id = a.Id,
                 name = a.Name,
-                region = a.Region,
-                population = a.Population?.TotalPopulation,
-                pct65AndAbove = a.Population?.Pct65AndAbove
+                region = a.Region
             }
         });
 

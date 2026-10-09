@@ -1,5 +1,5 @@
 import { LAYER_META, type LayerKey } from '../hooks/useMapLayers';
-import { floatingCard, railButton, chevronStyle, surface, SCORE_RAMP_STOPS, type PanelTheme } from './panelStyles';
+import { floatingCard, railButton, chevronStyle, surface, type PanelTheme } from './panelStyles';
 import { BASEMAPS, BASEMAP_ORDER, type BasemapKey } from './basemaps';
 import { useState } from 'react';
 
@@ -10,9 +10,6 @@ interface Props {
   loading?: boolean;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  shadeByPriority: boolean;
-  onToggleShading: () => void;
-  canShade: boolean;
   basemap: BasemapKey;
   onBasemapChange: (key: BasemapKey) => void;
   theme: PanelTheme;
@@ -24,7 +21,7 @@ interface Props {
 
 export default function LayerPanel({
   visible, onToggle, counts, loading, collapsed, onToggleCollapse,
-  shadeByPriority, onToggleShading, canShade, basemap, onBasemapChange, theme,
+  basemap, onBasemapChange, theme,
   colours, onColourChange, onResetColours, coloursCustomised,
 }: Props) {
   const c = surface(theme);
@@ -112,43 +109,19 @@ export default function LayerPanel({
         );
       })}
 
-      {/* Shading is a property of the planning-areas layer, so it belongs here
-          even though the values come from the scoring service. */}
-      <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${c.border}` }}>
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: 8, fontSize: 13,
-          cursor: canShade ? 'pointer' : 'default', opacity: canShade ? 1 : 0.5,
-        }}>
-          <input type="checkbox" checked={shadeByPriority} onChange={onToggleShading} disabled={!canShade} />
-          <span>Shade by priority <br/>(Planning Areas)</span>
-        </label>
-
-        {shadeByPriority && canShade && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden' }}>
-              {SCORE_RAMP_STOPS.map(col => <span key={col} style={{ flex: 1, background: col }} />)}
-            </div>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              fontSize: 10.5, color: c.textMuted, marginTop: 3,
-            }}>
-              <span>Lower</span>
-              <span>Higher priority</span>
-            </div>
-          </div>
-        )}
-        {coloursCustomised && (
-        <button
-          onClick={onResetColours}
-          style={{
-            marginTop: 8, background: 'none', border: 'none',
-            color: c.textMuted, cursor: 'pointer', fontSize: 11.5, padding: 0,
-          }}
-        >
-          Reset colours
-        </button>
+      {coloursCustomised && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${c.border}` }}>
+          <button
+            onClick={onResetColours}
+            style={{
+              background: 'none', border: 'none',
+              color: c.textMuted, cursor: 'pointer', fontSize: 11.5, padding: 0,
+            }}
+          >
+            Reset colours
+          </button>
+        </div>
       )}
-      </div>
     </aside>
   );
 }
